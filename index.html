@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BLUE Buyback Monitor — Sui</title>
+  <meta name="description" content="Bluefin-style dashboard to monitor $BLUE buybacks on Sui."/>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Inter font -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0b1020; --panel:#0f152b; --panel-2:#121a35; --text:#d9e1ff; --muted:#94a3b8;
+      --accent:#3b82f6; --accent-2:#22d3ee; --positive:#34d399; --negative:#ef4444;
+      --border:rgba(255,255,255,.06); --chip:#1e2a52; --shadow:0 12px 24px rgba(19,36,90,.35);
+      --radius:14px;
+    }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{
+      margin:0;background: radial-gradient(1200px 600px at 70% -10%, rgba(59,130,246,.16), rgba(0,0,0,0) 60%),
+                       radial-gradient(900px 500px at -10% 10%, rgba(34,211,238,.10), rgba(0,0,0,0) 60%),
+                       var(--bg);
+      color:var(--text); font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+      line-height:1.4;
+    }
+    a{color:#93c5fd;text-decoration:none}
+    a:hover{text-decoration:underline}
+    .container{max-width:1260px;margin:24px auto;padding:0 16px}
+    header{display:flex;align-items:center;gap:16px;justify-content:space-between;margin-bottom:18px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:38px;height:38px;border-radius:10px;
+      background:linear-gradient(135deg,var(--accent),#1e40af);
+      box-shadow:0 0 0 3px rgba(59,130,246,.25), 0 10px 24px rgba(59,130,246,.35);}
+    .title{font-weight:800;letter-spacing:.3px}
+    .subtitle{color:var(--muted);font-size:.92rem}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{background:linear-gradient(180deg,#1a2350,#111936);border:1px solid var(--border);
+      color:var(--text);padding:10px 14px;border-radius:12px;cursor:pointer;font-weight:600;
+      transition:all .2s; box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);}
+    .btn:hover{transform:translateY(-1px);background:linear-gradient(180deg,#20306b,#131d42)}
+    .btn.accent{background:linear-gradient(180deg,#2563eb,#1e40af);border-color:#1d4ed8}
+    .btn.accent:hover{filter:brightness(1.05)}
+    .filters{display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:12px;margin:12px 0 18px}
+    .field{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 12px;
+      display:flex;flex-direction:column;gap:6px}
+    .field label{font-size:.78rem;color:var(--muted)}
+    .field input,.field select{background:transparent;border:none;outline:none;color:var(--text);font-size:.96rem}
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:12px 0 18px}
+    .card{background:linear-gradient(180deg,var(--panel),#0b122a);border:1px solid var(--border);
+      border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+    .card .label{color:var(--muted);font-size:.85rem}
+    .card .value{font-size:1.6rem;font-weight:800;margin-top:6px}
+    .trend{font-size:.82rem;margin-top:8px}
+    .trend.positive{color:var(--positive)} .trend.negative{color:var(--negative)}
+    .grid{display:grid;grid-template-columns:1.3fr .7fr;gap:14px}
+    .panel{background:linear-gradient(180deg,var(--panel),#0a1024);border:1px solid var(--border);
+      border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+    .panel h3{margin:0 0 12px;font-size:1.05rem}
+    canvas{width:100% !important;height:340px !important}
+    .table-wrap{overflow:auto;border-radius:12px;border:1px solid var(--border)}
+    table{width:100%;border-collapse:collapse;min-width:720px;background:var(--panel)}
+    th,td{padding:12px;border-bottom:1px solid var(--border);text-align:left;font-size:.92rem}
+    th{color:var(--muted);font-weight:600;background:linear-gradient(180deg,#0f162d,#0b1126)}
+    tr:hover td{background:var(--panel-2)}
+    .chip{display:inline-block;padding:4px 8px;border-radius:999px;background:var(--chip);font-size:.78rem;color:#c7d2fe}
+    .status.buy{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.35)}
+    .hash{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,"Liberation Mono","Courier New", monospace; font-size:.82rem}
+    .pagination{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+    .pagination button{padding:8px 10px;border-radius:10px;background:#0e1633;border:1px solid var(--border);color:var(--text);cursor:pointer}
+    .badge{padding:6px 8px;border-radius:8px;background:linear-gradient(180deg,#0f1a3a,#0b122a);
+      border:1px solid var(--border);font-size:.8rem;color:#b6c3ff}
+    footer{margin:18px 0;color:var(--muted);font-size:.85rem}
+    @media (max-width:1024px){
+      .filters{grid-template-columns:1fr}
+      .kpis{grid-template-columns:1fr 1fr}
+      .grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <div class="title">$BLUE Buyback Monitor</div>
+          <div class="subtitle">Bluefin-styled dashboard for Sui on-chain buybacks only</div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button class="btn" id="btnDemo">Load Demo Data</button>
+        <button class="btn accent" id="btnRefresh">Refresh</button>
+      </div>
+    </header>
+
+    <!-- Filters / Settings -->
+    <div class="filters">
+      <div class="field">
+        <label>$BLUE Contract (Sui Move)</label>
+        <input id="inpContract" value="0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e349a50e90bdca::blue::BLUE" />
+      </div>
+      <div class="field">
+        <label>Aggregation Wallet (buyback)</label>
+        <input id="inpWallet" value="0xf59fe3c0f25f1415a44b1d29392c36b092926443615cb05753438eeb1b3f5cfa" />
+      </div>
+      <div class="field">
+        <label>Time Range</label>
+        <select id="selRange">
+          <option value="7">7 days</option>
+          <option value="30" selected>30 days</option>
+          <option value="90">90 days</option>
+          <option value="365">1 year</option>
+          <option value="all">All</option>
+        </select>
+      </div>
+      <div class="field" style="display:flex;align-items:end">
+        <div class="badge">Test mode (placeholder wallet)</div>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpis">
+      <div class="card">
+        <div class="label">Total Buybacks (BLUE)</div>
+        <div class="value" id="kpiTotalBlue">—</div>
+        <div class="trend" id="kpiAvgPrice">—</div>
+      </div>
+      <div class="card">
+        <div class="label">Est. Value (USD)</div>
+        <div class="value" id="kpiUsdValue">—</div>
+        <div class="trend" id="kpiSpot">—</div>
+      </div>
+      <div class="card">
+        <div class="label">Transactions</div>
+        <div class="value" id="kpiTxCount">—</div>
+        <div class="trend" id="kpiLastBuy">—</div>
+      </div>
+      <div class="card">
+        <div class="label">Unique Buy Days</div>
+        <div class="value" id="kpiDays">—</div>
+        <div class="trend" id="kpiDailyAvg">—</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid">
+      <div class="panel">
+        <h3>Cumulative Buybacks (BLUE)</h3>
+        <canvas id="chartCumulative"></canvas>
+      </div>
+      <div class="panel">
+        <h3>Daily Volume (BLUE)</h3>
+        <canvas id="chartDaily"></canvas>
+      </div>
+    </div>
+
+    <!-- On-chain Table -->
+    <div class="panel" style="margin-top:14px">
+      <h3>On-chain Transactions (Sui)</h3>
+      <div class="table-wrap">
+        <table id="tblOnChain">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Hash</th>
+              <th>Type</th>
+              <th>Amount (BLUE)</th>
+              <th>Est. Price (USD)</th>
+              <th>Counterparty</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pgOnChain"></div>
+      <div class="subtitle" style="margin-top:8px">
+        Explorer links: <a target="_blank" href="https://suiscan.xyz/">SuiScan</a> / <a target="_blank" href="https://suivision.xyz/">SuiVision</a>.
+      </div>
+    </div>
+
+    <footer>
+      <div>⚙️ Integration tip: replace <span class="chip">fetchOnChainTx()</span> with your indexer/API calls (Sui explorer, custom indexer). The dashboard updates automatically.</div>
+    </footer>
+  </div>
+
+  <script>
+    // ===========================
+    // Defaults
+    // ===========================
+    const DEFAULT_CONTRACT = "0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e349a50e90bdca::blue::BLUE";
+    const DEFAULT_WALLET   = "0xf59fe3c0f25f1415a44b1d29392c36b092926443615cb05753438eeb1b3f5cfa";
+    // Spot price placeholder (replace with your pricing feed)
+    let priceBLUE_USD = 0.32; // TODO: wire a real price source
+
+    // ===========================
+    // Helpers
+    // ===========================
+    const $ = (sel) => document.querySelector(sel);
+    const fmt = {
+      n: (x, d=2) => Number(x||0).toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d}),
+      i: (x) => Number(x||0).toLocaleString('en-US'),
+      k: (x) => { const n = Number(x||0);
+        if (Math.abs(n)>=1e9) return (n/1e9).toFixed(2)+'B';
+        if (Math.abs(n)>=1e6) return (n/1e6).toFixed(2)+'M';
+        if (Math.abs(n)>=1e3) return (n/1e3).toFixed(2)+'k';
+        return String(n); },
+      date: (iso) => new Date(iso).toLocaleString('en-US',{hour12:false}),
+      shortDate: (iso) => new Date(iso).toLocaleDateString('en-US'),
+      hash: (h) => h ? (h.slice(0,10)+'…'+h.slice(-6)) : '—'
+    };
+
+    function linkSuiTx(hash){
+      return `https://suiscan.xyz/mainnet/tx/${hash}`;
+    }
+
+    // ===========================
+    // Demo data (mock)
+    // ===========================
+    let DEMO_onchain = [
+      {date:'2025-09-28T10:14:00Z', hash:'Gn9x5a2b1c0d9e', type:'BUYBACK', amountBLUE: 180000, priceUSD:0.30, counterparty:'Pool'},
+      {date:'2025-09-29T15:40:00Z', hash:'Ab1cf39e21aa54', type:'BUYBACK', amountBLUE: 220000, priceUSD:0.31, counterparty:'Pool'},
+      {date:'2025-09-30T09:07:00Z', hash:'Kp0qc339aa129a', type:'BUYBACK', amountBLUE: 160000, priceUSD:0.33, counterparty:'Pool'},
+      {date:'2025-10-01T12:21:00Z', hash:'Zz7rdd12904f71', type:'BUYBACK', amountBLUE: 300000, priceUSD:0.32, counterparty:'Pool'},
+      {date:'2025-10-02T11:10:00Z', hash:'Tx9v9aa11077b3', type:'BUYBACK', amountBLUE: 95000,  priceUSD:0.34, counterparty:'Pool'}
+    ];
+
+    // ===========================
+    // State & pagination
+    // ===========================
+    let state = {
+      contract: DEFAULT_CONTRACT,
+      wallet: DEFAULT_WALLET,
+      range: '30',
+      onchain: [],
+      pageOnChain: 1,
+      perPage: 8
+    };
+
+    // ===========================
+    // Fetchers (replace with real API)
+    // ===========================
+    async function fetchOnChainTx({contract, wallet, range}){
+      // TODO: Replace with explorer/indexer calls:
+      // 1) Filter transactions by wallet and token contract
+      // 2) Map into: { date, hash, type:'BUYBACK', amountBLUE, priceUSD, counterparty }
+      const days = range === 'all' ? 99999 : parseInt(range,10);
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-days);
+      return DEMO_onchain.filter(r => new Date(r.date) >= cutoff);
+    }
+
+    // ===========================
+    // Rendering
+    // ===========================
+    let chartCumul, chartDaily;
+
+    function computeKpis(){
+      const totalBlue = state.onchain.reduce((s,r)=>s + (r.amountBLUE||0), 0);
+      const sorted = state.onchain.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+      const last = sorted[0];
+      const avgPrice = state.onchain.length
+        ? state.onchain.reduce((s,r)=>s + (r.priceUSD||0)*(r.amountBLUE||0),0)/Math.max(totalBlue,1)
+        : 0;
+      const daysSet = new Set(state.onchain.map(r => new Date(r.date).toISOString().slice(0,10)));
+
+      document.getElementById('kpiTotalBlue').textContent = fmt.k(totalBlue);
+      document.getElementById('kpiAvgPrice').textContent  = totalBlue ? `Avg buy price ≈ $${fmt.n(avgPrice,4)}` : '—';
+      document.getElementById('kpiUsdValue').textContent  = `$ ${fmt.k(totalBlue * (priceBLUE_USD||avgPrice||0))}`;
+      document.getElementById('kpiSpot').textContent      = `Spot ≈ $ ${fmt.n(priceBLUE_USD,4)}`;
+      document.getElementById('kpiTxCount').textContent   = fmt.i(state.onchain.length);
+      document.getElementById('kpiLastBuy').textContent   = last ? `Last buy: ${fmt.date(last.date)}` : '—';
+      document.getElementById('kpiDays').textContent      = fmt.i(daysSet.size);
+      document.getElementById('kpiDailyAvg').textContent  = daysSet.size ? `Daily avg ≈ ${fmt.k(totalBlue / daysSet.size)} BLUE` : '—';
+    }
+
+    function renderCharts(){
+      const byDay = { };
+      const sorted = state.onchain.slice().sort((a,b)=> new Date(a.date)-new Date(b.date));
+      let cumul = 0;
+      const labels = [];
+      const seriesCumul = [];
+      const seriesDaily = [];
+
+      sorted.forEach(r=>{
+        const key = (new Date(r.date)).toISOString().slice(0,10);
+        byDay[key] = (byDay[key]||0) + r.amountBLUE;
+      });
+
+      Object.keys(byDay).sort().forEach(day=>{
+        cumul += byDay[day];
+        labels.push(day);
+        seriesCumul.push(cumul);
+        seriesDaily.push(byDay[day]);
+      });
+
+      const commonOpts = {
+        responsive:true,
+        animation:{duration:400},
+        plugins:{
+          legend:{display:false},
+          tooltip:{mode:'index',intersect:false,backgroundColor:'#0b1020',titleColor:'#cbd5e1',bodyColor:'#e2e8f0',borderColor:'#1f2a4d',borderWidth:1}
+        },
+        scales:{
+          x:{grid:{color:'rgba(255,255,255,.05)'}},
+          y:{grid:{color:'rgba(255,255,255,.05)'}}
+        }
+      };
+
+      if(chartCumul) chartCumul.destroy();
+      chartCumul = new Chart(document.getElementById('chartCumulative'),{
+        type:'line',
+        data:{labels, datasets:[{data:seriesCumul, tension:.35, borderWidth:2, fill:true,
+          backgroundColor:'rgba(59,130,246,.18)', borderColor:'rgba(59,130,246,.95)'}]},
+        options: commonOpts
+      });
+
+      if(chartDaily) chartDaily.destroy();
+      chartDaily = new Chart(document.getElementById('chartDaily'),{
+        type:'bar',
+        data:{labels, datasets:[{data:seriesDaily, borderWidth:0, backgroundColor:'rgba(34,211,238,.75)'}]},
+        options: commonOpts
+      });
+    }
+
+    function paginate(arr, page, per){ const start=(page-1)*per; return arr.slice(start,start+per); }
+
+    function renderOnChainTable(){
+      const tbody = document.querySelector('#tblOnChain tbody'); tbody.innerHTML='';
+      const pageRows = paginate(state.onchain.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)), state.pageOnChain, state.perPage);
+      pageRows.forEach(r=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${fmt.date(r.date)}</td>
+          <td class="hash"><a target="_blank" href="${linkSuiTx(r.hash)}">${fmt.hash(r.hash)}</a></td>
+          <td><span class="chip status buy">${r.type}</span></td>
+          <td>${fmt.n(r.amountBLUE,0)}</td>
+          <td>${fmt.n(r.priceUSD,4)} $</td>
+          <td>${r.counterparty||'—'}</td>`;
+        tbody.appendChild(tr);
+      });
+      renderPagination('pgOnChain', state.onchain.length, state.pageOnChain, p=>{state.pageOnChain=p; renderOnChainTable();});
+    }
+
+    function renderPagination(elId, total, page, onClick){
+      const pages = Math.max(1, Math.ceil(total / state.perPage));
+      const el = document.getElementById(elId); el.innerHTML='';
+      const mk = (label, p, disabled=false)=>{
+        const b=document.createElement('button'); b.textContent=label;
+        if(disabled){ b.disabled=true; b.style.opacity=.6; }
+        b.onclick=()=>onClick(p); return b;
+      };
+      el.appendChild(mk('«',1,page===1));
+      el.appendChild(mk('‹',Math.max(1,page-1),page===1));
+      el.appendChild(document.createTextNode(` Page ${page} / ${pages} `));
+      el.appendChild(mk('›',Math.min(pages,page+1),page===pages));
+      el.appendChild(mk('»',pages,page===pages));
+    }
+
+    // ===========================
+    // Main refresh
+    // ===========================
+    async function refresh(){
+      state.contract = document.getElementById('inpContract').value.trim() || DEFAULT_CONTRACT;
+      state.wallet   = document.getElementById('inpWallet').value.trim()   || DEFAULT_WALLET;
+      state.range    = document.getElementById('selRange').value;
+
+      state.onchain  = await fetchOnChainTx({contract: state.contract, wallet: state.wallet, range: state.range});
+      state.pageOnChain = 1;
+
+      computeKpis();
+      renderCharts();
+      renderOnChainTable();
+    }
+
+    // ===========================
+    // Demo loader
+    // ===========================
+    function loadDemo(){
+      // wiggle the spot price for demo
+      priceBLUE_USD = 0.32 + (Math.random()*0.04-0.02);
+      refresh();
+    }
+
+    // Events
+    document.getElementById('btnRefresh').addEventListener('click', refresh);
+    document.getElementById('btnDemo').addEventListener('click', loadDemo);
+    document.getElementById('selRange').addEventListener('change', refresh);
+
+    // First paint
+    loadDemo();
+  </script>
+</body>
+</html>
