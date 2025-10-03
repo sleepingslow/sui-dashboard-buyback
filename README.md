@@ -1,26 +1,27 @@
-# BLUE Buyback Monitor — Static Site
+# $BLUE Buyback Monitor — Suiscan (Client-side)
 
-A single-page, Bluefin-styled dashboard to track **$BLUE buybacks on Sui** (on-chain only).  
-Language: **English**. No BTC section.
+This is a **static**, Bluefin-style dashboard that reads **$BLUE buybacks on Sui, directly from Suiscan (Blockberry API)** — or from a CSV/JSON you host.
 
-## Files
-- `index.html` — all-in-one page (embedded CSS & JS, uses Chart.js via CDN).
+## How to run
+- Open `index.html` in a browser (double-click) or host it on any static host.
+- Click **Load Demo** to preview the UI.
+- Paste your **Suiscan/Blockberry `x-api-key`** in the top-right field, then **Refresh**.
 
-## Quick Start
-1. Open `index.html` locally in your browser **or** upload the file to any static host (GitHub Pages, Netlify, Vercel, S3, Nginx).
-2. Click **Load Demo Data** to preview.
-3. When you have the correct wallet/indexer, replace the fetcher:
-   - In `index.html`, find `fetchOnChainTx(...)` and plug your API calls (Sui explorer or your own indexer).
-   - Expected output format per row:
-     ```js
-     { date: 'ISO string', hash: 'txHash', type: 'BUYBACK', amountBLUE: Number, priceUSD: Number, counterparty: 'Pool|...' }
-     ```
+## Where the data comes from
+- **By Coin Type:** `POST https://api.blockberry.one/sui/v1/coins/{coinType}/transactions` — we filter results to the buyback wallet and sum BLUE inflows.
+- **By Account:** `GET  https://api.blockberry.one/sui/v1/accounts/{address}/transactions` — fallback if the coin endpoint is empty, we compute BLUE received by the wallet.
+- Docs: Blockberry Sui API powers Suiscan.
 
-## Defaults
-- Contract: 0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e349a50e90bdca::blue::BLUE
-- Aggregation wallet (placeholder): 0xf59fe3c0f25f1415a44b1d29392c36b092926443615cb05753438eeb1b3f5cfa
+## Config defaults
+- $BLUE contract (coinType): `0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e349a50e90bdca::blue::BLUE`
+- Buyback wallet (test): `0xf59fe3c0f25f1415a44b1d29392c36b092926443615cb05753438eeb1b3f5cfa`
+
+## CSV/JSON compatibility
+If you prefer to ingest your own indexer output, the table expects rows with:
+```json
+{ "date": "ISO datetime", "hash": "txHash", "type": "BUYBACK", "amountBLUE": 12345, "priceUSD": 0.31, "counterparty": "Pool" }
+```
 
 ## Notes
-- **No build** needed — it's just one HTML file.
-- Chart.js is loaded from a CDN to keep the page self-contained.
-- Pricing: the page uses a placeholder `priceBLUE_USD`. Replace it with a real feed if needed.
+- **CORS & API key:** Browser calls require `x-api-key`. For production, hide keys behind a tiny proxy.
+- Price feed: a placeholder spot price is used for KPIs; connect your live feed if needed.
