@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>BLUE Buyback Monitor — Sui</title>
+  <title>BLUE Buyback Dashboard — Sui</title>
   <meta name="description" content="Bluefin-style dashboard to monitor $BLUE buybacks on Sui."/>
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -118,28 +118,28 @@
       <div class="brand">
         <div class="logo"></div>
         <div>
-          <div class="title">$BLUE Buyback Monitor</div>
-          <div class="subtitle">Bluefin-styled dashboard for Sui on-chain buybacks only</div>
+          <div class="title">$BLUE Buyback Dashboard</div>
+          <div class="subtitle">Bluefin-style dashboard for Sui on-chain buybacks</div>
         </div>
       </div>
       <div class="toolbar">
-        <button class="btn" id="btnDemo">Load Demo Data</button>
-        <button class="btn accent" id="btnRefresh">Refresh</button>
+  <button class="btn" id="btnDemo">Demo Data</button>
+  <button class="btn accent" id="btnRefresh">Refresh</button>
       </div>
     </header>
 
     <!-- Filters / Settings -->
     <div class="filters">
       <div class="field">
-        <label>$BLUE Contract (Sui Move)</label>
+  <label>$BLUE Contract (Sui Move)</label>
         <input id="inpContract" value="0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e349a50e90bdca::blue::BLUE" />
       </div>
       <div class="field">
-        <label>Aggregation Wallet (buyback)</label>
+  <label>Buyback Wallet</label>
         <input id="inpWallet" value="0xf59fe3c0f25f1415a44b1d29392c36b092926443615cb05753438eeb1b3f5cfa" />
       </div>
       <div class="field">
-        <label>Time Range</label>
+  <label>Time Range</label>
         <select id="selRange">
           <option value="7">7 days</option>
           <option value="30" selected>30 days</option>
@@ -149,7 +149,7 @@
         </select>
       </div>
       <div class="field" style="display:flex;align-items:end">
-        <div class="badge">Test mode (placeholder wallet)</div>
+  <div class="badge">Test mode (placeholder wallet)</div>
       </div>
     </div>
 
@@ -161,7 +161,7 @@
         <div class="trend" id="kpiAvgPrice">—</div>
       </div>
       <div class="card">
-        <div class="label">Est. Value (USD)</div>
+        <div class="label">Estimated Value (USD)</div>
         <div class="value" id="kpiUsdValue">—</div>
         <div class="trend" id="kpiSpot">—</div>
       </div>
@@ -171,7 +171,7 @@
         <div class="trend" id="kpiLastBuy">—</div>
       </div>
       <div class="card">
-        <div class="label">Unique Buy Days</div>
+        <div class="label">Unique Buyback Days</div>
         <div class="value" id="kpiDays">—</div>
         <div class="trend" id="kpiDailyAvg">—</div>
       </div>
@@ -191,20 +191,20 @@
 
     <!-- On-chain Table -->
     <div class="panel" style="margin-top:14px">
-      <h3>On-chain Transactions (Sui)</h3>
+  <h3>On-chain Transactions (Sui)</h3>
       <div class="table-wrap">
         <table id="tblOnChain">
           <thead>
             <tr>
           <th>Date</th>
-          <th>Hash</th>
+          <th>Tx Hash</th>
           <th>Type</th>
           <th>Amount (BLUE)</th>
           <th>Est. Price (USD)</th>
-          <th>Solde avant</th>
-          <th>Solde après</th>
+          <th>Balance Before</th>
+          <th>Balance After</th>
           <th>Counterparty</th>
-          <th>Alerte</th>
+          <th>Alert</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -217,7 +217,7 @@
     </div>
 
     <footer>
-      <div>⚙️ Integration tip: replace <span class="chip">fetchOnChainTx()</span> with your indexer/API calls (Sui explorer, custom indexer). The dashboard updates automatically.</div>
+  <div>⚙️ Integration tip: replace <span class="chip">fetchOnChainTx()</span> with your indexer/API calls (Sui explorer, custom indexer). The dashboard updates automatically.</div>
     </footer>
   </div>
 
@@ -340,15 +340,37 @@
 
       const commonOpts = {
         responsive:true,
-        animation:{duration:400},
+        animation:{duration:500,easing:'easeOutQuart'},
         plugins:{
           legend:{display:false},
-          tooltip:{mode:'index',intersect:false,backgroundColor:'#0b1020',titleColor:'#cbd5e1',bodyColor:'#e2e8f0',borderColor:'#1f2a4d',borderWidth:1}
+          tooltip:{
+            mode:'index',intersect:false,
+            backgroundColor:'#0b1020',
+            titleColor:'#e0eaff',
+            bodyColor:'#e0eaff',
+            borderColor:'#1f2a4d',
+            borderWidth:1,
+            titleFont:{size:16,weight:'bold'},
+            bodyFont:{size:15},
+            padding:14,
+            callbacks:{
+              label: ctx => `Volume: ${fmt.k(ctx.raw)} BLUE`
+            }
+          }
         },
         scales:{
-          x:{grid:{color:'rgba(255,255,255,.05)'}},
-          y:{grid:{color:'rgba(255,255,255,.05)'}}
-        }
+          x:{
+            grid:{color:'rgba(59,130,246,.07)'},
+            border:{color:'rgba(59,130,246,.13)'},
+            ticks:{color:'#e0eaff',font:{size:16,weight:'bold'},padding:8}
+          },
+          y:{
+            grid:{color:'rgba(59,130,246,.10)'},
+            border:{color:'rgba(59,130,246,.13)'},
+            ticks:{color:'#e0eaff',font:{size:16},padding:8}
+          }
+        },
+        layout:{padding:{top:12,bottom:12,left:12,right:12}}
       };
 
       if(chartCumul) chartCumul.destroy();
@@ -371,44 +393,14 @@
               const idx = ctx.dataIndex;
               return idx===labels.length-1 ? 'rgba(59,130,246,0.95)' : 'rgba(34,211,238,0.85)';
             },
-            borderRadius:14,
-            barPercentage:0.48,
-            categoryPercentage:0.68,
+            borderRadius:18,
+            barPercentage:0.38,
+            categoryPercentage:0.62,
             hoverBackgroundColor:'rgba(59,130,246,1)',
-            maxBarThickness:44
+            maxBarThickness:54
           }]
         },
-        options: {
-          ...commonOpts,
-          plugins: {
-            ...commonOpts.plugins,
-            tooltip: {
-              ...commonOpts.plugins.tooltip,
-              callbacks: {
-                label: ctx => `Volume: ${fmt.k(ctx.raw)} BLUE`
-              },
-              titleFont:{size:16,weight:'bold'},
-              bodyFont:{size:15},
-              padding:14
-            }
-          },
-          scales: {
-            x: {
-              ...commonOpts.scales.x,
-              ticks: {color:'#e0eaff', font:{size:15, weight:'bold'}, padding:6},
-              grid: {color:'rgba(59,130,246,.07)'},
-              border:{color:'rgba(59,130,246,.13)'}
-            },
-            y: {
-              ...commonOpts.scales.y,
-              ticks: {color:'#e0eaff', font:{size:15}, padding:6},
-              grid: {color:'rgba(59,130,246,.10)'},
-              border:{color:'rgba(59,130,246,.13)'}
-            }
-          },
-          layout:{padding:{top:8,bottom:8,left:8,right:8}},
-          animation:{duration:600,easing:'easeOutQuart'}
-        }
+        options: commonOpts
       });
     }
 
